@@ -46,7 +46,7 @@ omsk_map/
 ```
 
 ### POST /api/places
-Добавляет новую точку. Требует HTTP Basic Auth (логин: `admin`, пароль: `shilnikov`).  
+Добавляет новую точку. Требует HTTP Basic Auth (логин: ``, пароль: ``).  
 Поля формы: `title`, `description`, `latitude`, `longitude`, `files` (multipart).
 
 ### GET /api/places/new
@@ -57,7 +57,7 @@ omsk_map/
 
 ## Аутентификация
 
-HTTP Basic Auth: `admin : shilnikov` (переменная окружения `ADD_PASSWORD`).
+HTTP Basic Auth: ` : ` (переменная окружения `ADD_PASSWORD`).
 
 ## Деплой
 
