@@ -153,21 +153,31 @@ def add_place(
 
 @app.delete("/api/places/{place_id}")
 def delete_place(place_id: int, credentials: HTTPBasicCredentials = Depends(security)):
-    """Удалить точку из БД (требуется пароль)"""
+    """Удалить точку из БД + файлы фото (требуется пароль)"""
     verify_password(credentials)
     conn = get_conn()
     try:
-        with conn.cursor() as cur:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT images FROM places_new WHERE id = %s", (place_id,))
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(404, "Place not found or not deletable")
+            images = row["images"] if isinstance(row["images"], list) else json.loads(row["images"] or "[]")
             cur.execute("DELETE FROM places_new WHERE id = %s RETURNING id", (place_id,))
-            deleted = cur.fetchone()
+            cur.fetchone()
         conn.commit()
     finally:
         conn.close()
 
-    if not deleted:
-        raise HTTPException(404, "Place not found or not deletable")
+    # Удалить файлы фото
+    for img in images:
+        src = img.get("src", "")
+        if src.startswith("/uploads/"):
+            file_path = os.path.join(UPLOAD_DIR, os.path.basename(src))
+            if os.path.isfile(file_path):
+                os.remove(file_path)
 
-    return {"id": place_id, "status": "deleted"}
+    return {"id": place_id, "status": "deleted", "files_removed": len(images)}
 
 
 @app.get("/health")
