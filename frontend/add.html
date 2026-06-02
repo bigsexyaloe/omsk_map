@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Добавить точку — Заводы Омска</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f0eb; color: #2c1810; min-height: 100vh; }
+        .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
+        h1 { font-size: 24px; margin-bottom: 8px; color: #8b2222; }
+        .subtitle { color: #a0896e; margin-bottom: 32px; font-size: 14px; }
+        form { background: white; border-radius: 12px; padding: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+        label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; color: #5a3e2b; }
+        input, textarea { width: 100%; padding: 12px; border: 1px solid #d4c5b2; border-radius: 8px; font-size: 15px; margin-bottom: 20px; background: #fdfaf7; }
+        textarea { resize: vertical; min-height: 80px; }
+        input:focus, textarea:focus { outline: none; border-color: #8b2222; box-shadow: 0 0 0 3px rgba(139,34,34,0.15); }
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        button { width: 100%; padding: 14px; background: #8b2222; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+        button:hover { background: #6b1a1a; }
+        button:disabled { background: #c4a89c; cursor: not-allowed; }
+        .file-hint { font-size: 12px; color: #a0896e; margin-top: -14px; margin-bottom: 20px; }
+        .status { text-align: center; padding: 12px; border-radius: 8px; margin-bottom: 20px; display: none; }
+        .status.success { display: block; background: #e8f5e9; color: #2e7d32; }
+        .status.error { display: block; background: #fce4ec; color: #c62828; }
+        .back-link { display: inline-block; margin-top: 20px; color: #8b2222; text-decoration: none; font-size: 14px; }
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Добавить точку на карту</h1>
+        <p class="subtitle">Заводы Омска времён Великой Отечественной войны</p>
+
+        <div id="status" class="status"></div>
+
+        <form id="add-form">
+            <label for="password">Пароль доступа *</label>
+            <input type="password" id="password" name="password" required placeholder="Введите пароль для добавления">
+
+            <label for="title">Название *</label>
+            <input type="text" id="title" name="title" required placeholder="Название завода или предприятия">
+
+            <label for="description">Описание</label>
+            <textarea id="description" name="description" placeholder="Историческая справка, детали..."></textarea>
+
+            <div class="row">
+                <div>
+                    <label for="latitude">Широта (latitude) *</label>
+                    <input type="number" id="latitude" name="latitude" step="any" required placeholder="54.937277">
+                </div>
+                <div>
+                    <label for="longitude">Долгота (longitude) *</label>
+                    <input type="number" id="longitude" name="longitude" step="any" required placeholder="73.288909">
+                </div>
+            </div>
+
+            <label for="files">Фотографии</label>
+            <input type="file" id="files" name="files" multiple accept="image/*">
+            <p class="file-hint">Можно выбрать несколько файлов. Форматы: JPG, PNG, WebP.</p>
+
+            <button type="submit" id="submit-btn">Добавить точку</button>
+        </form>
+
+        <a href="/" class="back-link">← Назад к карте</a>
+    </div>
+
+    <script>
+        document.getElementById('add-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submit-btn');
+            const status = document.getElementById('status');
+            const password = document.getElementById('password').value;
+
+            btn.disabled = true;
+            btn.textContent = 'Отправка...';
+            status.className = 'status';
+            status.style.display = 'none';
+
+            const formData = new FormData();
+            formData.append('title', document.getElementById('title').value);
+            formData.append('description', document.getElementById('description').value);
+            formData.append('latitude', document.getElementById('latitude').value);
+            formData.append('longitude', document.getElementById('longitude').value);
+
+            const fileInput = document.getElementById('files');
+            for (const file of fileInput.files) {
+                formData.append('files', file);
+            }
+
+            const auth = btoa('admin:' + password);
+
+            try {
+                const response = await fetch('/api/places', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Basic ' + auth },
+                    body: formData,
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    status.className = 'status success';
+                    status.style.display = 'block';
+                    status.textContent = 'Точка добавлена! ID: ' + data.id + '. Перенаправление на карту...';
+                    document.getElementById('add-form').reset();
+                    setTimeout(() => { window.location.href = '/'; }, 2000);
+                } else if (response.status === 401) {
+                    status.className = 'status error';
+                    status.style.display = 'block';
+                    status.textContent = 'Неверный пароль';
+                } else {
+                    const err = await response.json();
+                    status.className = 'status error';
+                    status.style.display = 'block';
+                    status.textContent = 'Ошибка: ' + (err.detail || response.statusText);
+                }
+            } catch (err) {
+                status.className = 'status error';
+                status.style.display = 'block';
+                status.textContent = 'Ошибка сети: ' + err.message;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Добавить точку';
+            }
+        });
+    </script>
+</body>
+</html>
+</write_to_file>
