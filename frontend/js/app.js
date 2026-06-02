@@ -44,6 +44,16 @@ function computeBounds(coords, pad) {
     );
 }
 
+function getImageSrc(img) {
+    // Старые точки (просто имя файла) → assets/images/
+    // Новые точки (полный путь /uploads/...) → как есть
+    if (!img || !img.src) return '';
+    if (img.src.startsWith('/uploads/') || img.src.startsWith('http')) {
+        return img.src;
+    }
+    return 'assets/images/' + img.src;
+}
+
 // ============================================================
 // Загрузка данных с API или fallback
 // ============================================================
@@ -77,7 +87,7 @@ function renderGallery(place, index) {
     const img = images[index];
     if (!img) return;
 
-    imgEl.src = 'assets/images/' + img.src;
+    imgEl.src = getImageSrc(img);
     imgEl.onerror = function () {
         this.src = '';
         this.alt = '(нет фото)';
@@ -97,7 +107,7 @@ function renderGallery(place, index) {
     thumbsEl.innerHTML = '';
     images.forEach(function (item, i) {
         const thumb = document.createElement('img');
-        thumb.src = 'assets/images/' + item.src;
+        thumb.src = getImageSrc(item);
         thumb.className = 'gallery-thumb' + (i === index ? ' active' : '');
         thumb.title = item.description || '';
         thumb.addEventListener('click', function () {
