@@ -13,7 +13,7 @@ const FALLBACK_PLACES = [
         id: 2,
         title: 'Омский шинный завод',
         description: 'Эвакуирован из Ленинграда.',
-        coordinates: [54.958999, 73.435783],
+        coordinates: [54.929290, 73.383876],
         images: [{ src: '34.jpg', description: '' }]
     }
 ];
