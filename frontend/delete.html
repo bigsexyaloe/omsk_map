@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Удалить точки — Заводы Омска</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f0eb; color: #2c1810; min-height: 100vh; }
+        .container { max-width: 700px; margin: 0 auto; padding: 40px 20px; }
+        h1 { font-size: 24px; margin-bottom: 8px; color: #8b2222; }
+        .subtitle { color: #a0896e; margin-bottom: 24px; font-size: 14px; }
+        .auth-row { display: flex; gap: 12px; align-items: flex-end; margin-bottom: 24px; background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+        .auth-row input { flex: 1; padding: 12px; border: 1px solid #d4c5b2; border-radius: 8px; font-size: 15px; background: #fdfaf7; }
+        .auth-row button { padding: 12px 24px; background: #8b2222; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+        .auth-row button:hover { background: #6b1a1a; }
+        .place-card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+        .place-card h3 { font-size: 16px; margin-bottom: 4px; color: #2c1810; }
+        .place-card .meta { font-size: 13px; color: #a0896e; }
+        .place-card .delete-btn { padding: 8px 18px; background: #c62828; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; white-space: nowrap; }
+        .place-card .delete-btn:hover { background: #b71c1c; }
+        .place-card .delete-btn:disabled { background: #ccc; cursor: not-allowed; }
+        .status { text-align: center; padding: 12px; border-radius: 8px; margin-bottom: 20px; display: none; }
+        .status.success { display: block; background: #e8f5e9; color: #2e7d32; }
+        .status.error { display: block; background: #fce4ec; color: #c62828; }
+        .empty { text-align: center; padding: 40px; color: #a0896e; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .back-link { display: inline-block; margin-top: 20px; color: #8b2222; text-decoration: none; font-size: 14px; }
+        .back-link:hover { text-decoration: underline; }
+        .nav-links { display: flex; gap: 16px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Удаление точек</h1>
+        <p class="subtitle">Только точки, добавленные через форму /add</p>
+
+        <div class="auth-row">
+            <input type="password" id="auth-password" placeholder="Пароль доступа" style="margin-bottom:0">
+            <button onclick="loadPlaces()">Загрузить список</button>
+        </div>
+
+        <div id="status" class="status"></div>
+        <div id="places-list"></div>
+
+        <div class="nav-links">
+            <a href="/" class="back-link">← Назад к карте</a>
+            <a href="/add" class="back-link">Добавить точку</a>
+        </div>
+    </div>
+
+    <script>
+        let authPassword = '';
+
+        async function loadPlaces() {
+            authPassword = document.getElementById('auth-password').value;
+            const status = document.getElementById('status');
+            status.className = 'status'; status.style.display = 'none';
+
+            const auth = btoa('admin:' + authPassword);
+            try {
+                const response = await fetch('/api/places/new', { headers: { 'Authorization': 'Basic ' + auth } });
+                if (!response.ok) { status.className = 'status error'; status.style.display = 'block'; status.textContent = 'Неверный пароль или ошибка сервера'; return; }
+                const places = await response.json();
+                renderList(places);
+            } catch (err) {
+                status.className = 'status error'; status.style.display = 'block';
+                status.textContent = 'Ошибка сети: ' + err.message;
+            }
+        }
+
+        function renderList(places) {
+            const container = document.getElementById('places-list');
+            if (!places || places.length === 0) {
+                container.innerHTML = '<div class="empty">Нет точек, добавленных через /add</div>';
+                return;
+            }
+            container.innerHTML = places.map(p => `
+                <div class="place-card" id="place-${p.id}">
+                    <div>
+                        <h3>${escapeHtml(p.title)}</h3>
+                        <div class="meta">ID: ${p.id} | ${p.coordinates[0].toFixed(6)}, ${p.coordinates[1].toFixed(6)} | Фото: ${p.images ? p.images.length : 0}</div>
+                    </div>
+                    <button class="delete-btn" onclick="deletePlace(${p.id})">Удалить</button>
+                </div>
+            `).join('');
+        }
+
+        async function deletePlace(id) {
+            if (!confirm('Удалить точку #' + id + '?')) return;
+            const btn = document.querySelector('#place-' + id + ' .delete-btn');
+            btn.disabled = true; btn.textContent = '...';
+
+            const auth = btoa('admin:' + authPassword);
+            const status = document.getElementById('status');
+            try {
+                const response = await fetch('/api/places/' + id, { method: 'DELETE', headers: { 'Authorization': 'Basic ' + auth } });
+                if (response.ok) {
+                    document.getElementById('place-' + id).remove();
+                    status.className = 'status success'; status.style.display = 'block';
+                    status.textContent = 'Точка #' + id + ' удалена';
+                    setTimeout(() => { status.style.display = 'none'; }, 3000);
+                } else {
+                    const err = await response.json();
+                    status.className = 'status error'; status.style.display = 'block';
+                    status.textContent = 'Ошибка: ' + (err.detail || '');
+                }
+            } catch (err) {
+                status.className = 'status error'; status.style.display = 'block';
+                status.textContent = 'Ошибка: ' + err.message;
+            }
+            btn.disabled = false; btn.textContent = 'Удалить';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

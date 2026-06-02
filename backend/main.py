@@ -97,6 +97,13 @@ def get_places():
     return old + new
 
 
+@app.get("/api/places/new")
+def get_new_places(credentials: HTTPBasicCredentials = Depends(security)):
+    """Список новых точек из БД (требуется пароль)"""
+    verify_password(credentials)
+    return load_new_places()
+
+
 @app.get("/api/places/{place_id}")
 def get_place(place_id: int):
     new = load_new_places()
@@ -142,6 +149,25 @@ def add_place(
         conn.close()
 
     return {"id": new_id, "title": title, "images": image_urls, "status": "created"}
+
+
+@app.delete("/api/places/{place_id}")
+def delete_place(place_id: int, credentials: HTTPBasicCredentials = Depends(security)):
+    """Удалить точку из БД (требуется пароль)"""
+    verify_password(credentials)
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM places_new WHERE id = %s RETURNING id", (place_id,))
+            deleted = cur.fetchone()
+        conn.commit()
+    finally:
+        conn.close()
+
+    if not deleted:
+        raise HTTPException(404, "Place not found or not deletable")
+
+    return {"id": place_id, "status": "deleted"}
 
 
 @app.get("/health")
